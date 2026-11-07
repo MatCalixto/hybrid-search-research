@@ -263,10 +263,6 @@ CREATE TABLE rag.products (
     name text NOT NULL,
     description text,
     class text,
-    sku character varying,
-    price numeric,
-    amount integer,
-    product_link text
 );
 
 
