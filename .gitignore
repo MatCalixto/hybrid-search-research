@@ -1,0 +1,52 @@
+# Configurações locais e segredos
+.env
+.env.*
+!.env.example
+!.env.sample
+credentials.json
+credentials-*.json
+*.credentials.json
+secrets/
+*.pem
+*.key
+
+# Dados brutos baixados e arquivos locais de embeddings
+# Mantenha os CSVs finais de resultados fora destas pastas.
+/WANDS/
+/dataset/
+/data/raw/
+/data/embeddings/
+
+# Dados persistentes de serviços e backups locais
+/.n8n/
+/postgres-data/
+/redis-data/
+/backups/
+*.dump
+*.backup
+
+# Arquivos temporários e logs
+/tmp/
+/temp/
+*.log
+*.tmp
+*.swp
+*~
+
+# Configuração pessoal do editor e do sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dependências e caches, caso sejam adicionados scripts de análise
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Não ignorar globalmente *.json, *.sql ou *.csv:
+# workflows, estrutura do banco e resultados fazem parte da reprodução.

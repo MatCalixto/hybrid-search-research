@@ -1,0 +1,457 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        672
+      ],
+      "id": "349cde49-44ff-45e6-8328-3db900759ab8",
+      "name": "manual"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "693960f9-aba1-4867-84fa-1798e3b93722",
+              "name": "keys",
+              "value": "={{[\n\"GEMINI-CREDENTIAL\"\n]}}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -848,
+        672
+      ],
+      "id": "f936fc61-c2ff-4dae-9657-e826bd891246",
+      "name": "set-keys"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "keys",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        -720,
+        672
+      ],
+      "id": "468a10c2-6373-44a1-b0dd-863a242b2a44",
+      "name": "split1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM rag.test_queries\nWHERE embedding IS NULL\nLIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -448,
+        672
+      ],
+      "id": "abd47423-6560-4857-89ba-a0ea97c254a4",
+      "name": "select2",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1d02372b-356e-43fc-9f38-1be0bfe10bb1",
+              "name": "id",
+              "value": "={{ $json.query_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d8bd4203-4781-4315-b25c-bdbb14c14e0d",
+              "name": "query",
+              "value": "={{ $json.query }}",
+              "type": "string"
+            },
+            {
+              "id": "c72c9e4a-a8dd-4387-bb38-a897e217d6a0",
+              "name": "requests",
+              "value": "={{ ({\n  model: \"models/gemini-embedding-2\",\n  content: {\n    parts: [\n      {\n        text: $json.query\n      }\n    ]\n  }\n}) }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -320,
+        672
+      ],
+      "id": "a3835150-ea29-4ac1-a895-9b56a91850d2",
+      "name": "set2"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "requests"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        672
+      ],
+      "id": "84199669-220d-468f-b5e7-c865dbf1fb19",
+      "name": "aggregate2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "embeddings",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        64,
+        672
+      ],
+      "id": "cb50c064-f6a6-4205-aee5-e7720b0de7ea",
+      "name": "split2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "rag",
+          "mode": "list",
+          "cachedResultName": "rag"
+        },
+        "table": {
+          "__rl": true,
+          "value": "test_queries",
+          "mode": "list",
+          "cachedResultName": "test_queries"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "embedding": "={{ $json.embedding }}",
+            "query_id": "={{ $json.query_id }}"
+          },
+          "matchingColumns": [
+            "query_id"
+          ],
+          "schema": [
+            {
+              "id": "query_id",
+              "displayName": "query_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "query_class",
+              "displayName": "query_class",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "embedding",
+              "displayName": "embedding",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        320,
+        672
+      ],
+      "id": "dbefd15d-60b2-48e3-a241-ab12582506c8",
+      "name": "update1",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -576,
+        672
+      ],
+      "id": "fce7c4b6-a890-4ae0-8383-fef72b252043",
+      "name": "loop3"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        672
+      ],
+      "id": "19ab1702-d817-4726-8c8d-b2319c47222f",
+      "name": "wait3",
+      "webhookId": "4922535f-f7ae-42db-a8f7-99c3759a6651"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:batchEmbedContents",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "={{ $('loop3').item.json.keys }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -64,
+        672
+      ],
+      "id": "7c2d3c94-5d25-4eaa-afe6-ac70e028ef6b",
+      "name": "embeddings1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f155ee6-77ac-4ac9-954b-ad1fd02dcdfa",
+              "name": "query_id",
+              "value": "={{ $('set2').all()[$itemIndex].json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "cab9b23d-5e88-49de-ad89-6300c67c3c35",
+              "name": "query",
+              "value": "=",
+              "type": "string"
+            },
+            {
+              "id": "54ba42f1-6fbc-4a20-93ce-6314911a6f8b",
+              "name": "embedding",
+              "value": "={{ $('split2').item.json.values.toJsonString()  }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        672
+      ],
+      "id": "463cda9a-966b-4427-9323-ba79da840d6d",
+      "name": "set-query"
+    }
+  ],
+  "connections": {
+    "manual": {
+      "main": [
+        [
+          {
+            "node": "set-keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set-keys": {
+      "main": [
+        [
+          {
+            "node": "split1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split1": {
+      "main": [
+        [
+          {
+            "node": "loop3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "select2": {
+      "main": [
+        [
+          {
+            "node": "set2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set2": {
+      "main": [
+        [
+          {
+            "node": "aggregate2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate2": {
+      "main": [
+        [
+          {
+            "node": "embeddings1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split2": {
+      "main": [
+        [
+          {
+            "node": "set-query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update1": {
+      "main": [
+        [
+          {
+            "node": "wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "loop3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "select2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait3": {
+      "main": [
+        [
+          {
+            "node": "loop3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "embeddings1": {
+      "main": [
+        [
+          {
+            "node": "split2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set-query": {
+      "main": [
+        [
+          {
+            "node": "update1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a5ff7a22a8615997fd44b2b2fc111993d218fbeb00cc810e7a27663c080339f"
+  }
+}

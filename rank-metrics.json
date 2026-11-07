@@ -1,0 +1,250 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -64
+      ],
+      "id": "a940783b-30cd-4173-9784-49b17298f347",
+      "name": "manual"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT q.query_id,q.query,(q.embedding IS NULL) AS missing_query_embedding,\n  (SELECT count(*)::integer FROM rag.documents WHERE embedding IS NULL) AS missing_document_embeddings\nFROM rag.test_queries q ORDER BY q.query_id\nLIMIT NULLIF($1::integer,0);",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $json.query_limit ] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "name": "Carregar consultas",
+      "id": "11b07a26-d2c6-4508-9176-01858f21baaf",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -144,
+        -64
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Configurar1').first().json;\nconst queries = $input.all().map(item => item.json);\nif (!queries.length || queries[0].query_id === undefined) throw new Error('Nenhuma consulta.');\nif (queries.some(q => q.missing_query_embedding) || Number(queries[0].missing_document_embeddings)>0) {\n  throw new Error('Complete os embeddings de consultas e produtos antes da comparação.');\n}\nif (!Number.isInteger(config.top_k) || config.top_k<10 || config.top_k>100 ||\n    !Number.isInteger(config.repetitions) || config.repetitions<1 ||\n    !Number.isInteger(config.warmup_repetitions) || config.warmup_repetitions<0 ||\n    config.full_text_weight<=0 || config.semantic_weight<=0 || config.rrf_k<=0) throw new Error('Configuração inválida.');\n// Gerador com seed: mesma ordem de execução ao repetir o experimento.\nlet state = Number(config.seed) >>> 0;\nfunction random() { state=(Math.imul(1664525,state)+1013904223)>>>0; return state/4294967296; }\nfunction shuffle(values) {\n  const result=[...values];\n  for (let i=result.length-1;i>0;i--) { const j=Math.floor(random()*(i+1)); [result[i],result[j]]=[result[j],result[i]]; }\n  return result;\n}\nconst tasks=[];\nfor (let round=1;round<=config.warmup_repetitions+config.repetitions;round++) {\n  const isWarmup=round<=config.warmup_repetitions;\n  for (const query of shuffle(queries)) {\n    for (const method of shuffle(['lexical','semantic','hybrid'])) {\n      tasks.push({json:{query_id:query.query_id,method,configuration:{\n        ...config,evaluator:'simple_v2',query_count:queries.length,\n        repetition:round-config.warmup_repetitions,is_warmup:isWarmup,\n      }}});\n    }\n  }\n}\nreturn tasks;"
+      },
+      "name": "Preparar buscas",
+      "id": "8a615c08-2907-46d7-ac99-cf7096427df0",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Uma busca por vez",
+      "id": "dfa15748-8727-490c-a512-92fb3a8822e7",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        144,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT rag.record_test_search($1::text,$2::integer,$3::text,$4::jsonb)::text AS search_id;",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $json.configuration.experiment_name, $json.query_id, $json.method, JSON.stringify($json.configuration) ] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "name": "Buscar cronometrar salvar",
+      "id": "7d08fd6a-0535-4258-83fa-fc1fe4da24bb",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        288,
+        64
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- $1 é o experiment_name. Aquecimento é excluído.\nWITH measured AS (\n  SELECT * FROM rag.test_searches\n  WHERE experiment_name=$1\n    AND configuration->>'evaluator'='simple_v2'\n    AND status=coalesce(configuration->>'completed_status','completed')\n    AND NOT (configuration->>'is_warmup')::boolean\n), timing AS (\n  SELECT query_id,method,\n    array_agg(latency_ms ORDER BY (configuration->>'repetition')::integer) AS latency_samples,\n    array_agg((configuration->>'repetition')::integer ORDER BY (configuration->>'repetition')::integer) AS repetitions\n  FROM measured GROUP BY query_id,method\n), first_measurement AS (\n  SELECT * FROM measured WHERE (configuration->>'repetition')::integer=1\n)\nSELECT s.query_id,q.query,q.query_class,s.method,s.top_k,s.configuration,\n  t.latency_samples,t.repetitions,\n  (SELECT count(*)::integer FROM rag.test_labels l WHERE l.query_id=s.query_id AND l.label='Exact') AS exact_count,\n  (SELECT count(*)::integer FROM rag.test_labels l WHERE l.query_id=s.query_id AND l.label='Partial') AS partial_count,\n  coalesce((SELECT jsonb_agg(jsonb_build_object('rank',r.rank,'product_id',r.product_id,'label',l.label) ORDER BY r.rank)\n    FROM rag.test_results r LEFT JOIN rag.test_labels l ON l.query_id=s.query_id AND l.product_id=r.product_id\n    WHERE r.search_id=s.id),'[]'::jsonb) AS results\nFROM first_measurement s\nJOIN timing t ON t.query_id=s.query_id AND t.method=s.method\nJOIN rag.test_queries q ON q.query_id=s.query_id\nORDER BY s.query_id,s.method;\n",
+        "options": {
+          "queryBatching": "single",
+          "queryReplacement": "={{ [ $('Configurar1').first().json.experiment_name ] }}",
+          "largeNumbersOutput": "text"
+        }
+      },
+      "name": "Ler rankings e tempos",
+      "id": "3468756f-0c67-446b-9858-25acac68d93d",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        288,
+        -64
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Relatório v3: métricas binárias usam somente consultas com ao menos um Exact.\n// A seleção depende dos julgamentos (exact_count > 0), NÃO dos acertos retornados.\n// Consultas elegíveis sem acertos continuam na média, com valor zero.\n// nDCG mantém IDCG > 0; latência e cobertura mantêm todas as consultas.\nconst rows = $input.all().map(item => item.json);\nif (!rows.length || !rows[0].configuration) throw new Error('Nenhum resultado deste experimento.');\nconst config = rows[0].configuration;\nconst methods = ['lexical', 'semantic', 'hybrid'];\nconst expectedQueries = Number(config.query_count);\nconst expectedRepetitions = Number(config.repetitions);\nif (rows.length !== expectedQueries * 3) throw new Error('Experimento incompleto ou duplicado. Execute novamente com outro experiment_name.');\nconst seen = new Set();\nfor (const row of rows) {\n  const key = `${row.query_id}:${row.method}`;\n  if (seen.has(key) || !methods.includes(row.method)) throw new Error('Consulta/método duplicado ou inválido.');\n  seen.add(key);\n  if (row.repetitions.length !== expectedRepetitions ||\n      row.repetitions.some((r, i) => Number(r) !== i + 1)) throw new Error('Repetições ausentes ou duplicadas.');\n  if (row.latency_samples.some(x => x === null || !Number.isFinite(Number(x)) || Number(x) < 0)) throw new Error('Latência inválida.');\n}\n// Cada método precisa das MESMAS consultas.\nconst queries = [...new Set(rows.map(r => r.query_id))];\nif (queries.length !== expectedQueries || queries.some(id => methods.some(m => !seen.has(`${id}:${m}`)))) {\n  throw new Error('Os três métodos precisam das mesmas consultas.');\n}\nconst mean = values => {\n  const valid = values.filter(v => v !== null && v !== undefined);\n  return valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;\n};\nfunction percentile(values, p) {\n  const sorted = [...values].sort((a, b) => a - b);\n  const index = (sorted.length - 1) * p;\n  const low = Math.floor(index), high = Math.ceil(index);\n  return sorted[low] + (sorted[high] - sorted[low]) * (index - low);\n}\nfunction metrics(row, k) {\n  const results = row.results.filter(r => Number(r.rank) <= k);\n  const exact = results.filter(r => r.label === 'Exact');\n  const firstExact = exact.length ? Math.min(...exact.map(r => Number(r.rank))) : null;\n  const totalExact = Number(row.exact_count);\n  const totalPartial = Number(row.partial_count);\n  const binaryEligible = totalExact > 0;\n  const grade = label => label === 'Exact' ? 2 : label === 'Partial' ? 1 : 0;\n  // DCG = soma dos ganhos descontados pela posição ORIGINAL.\n  const dcg = results.reduce((sum, r) => sum + (2 ** grade(r.label) - 1) / Math.log2(Number(r.rank) + 1), 0);\n  // O ranking ideal usa TODOS os julgamentos da consulta.\n  const ideal = [...Array(totalExact).fill(2), ...Array(totalPartial).fill(1)].slice(0, k);\n  const idcg = ideal.reduce((sum, g, i) => sum + (2 ** g - 1) / Math.log2(i + 2), 0);\n  const judged = results.filter(r => r.label !== null && r.label !== undefined).length;\n  return {\n    query_id: row.query_id, query: row.query, method: row.method, k,\n    exact_count: totalExact,\n    binary_eligible: binaryEligible,\n    rr: binaryEligible ? (firstExact === null ? 0 : 1 / firstExact) : null,\n    precision: binaryEligible ? exact.length / k : null,\n    recall: binaryEligible ? exact.length / totalExact : null,\n    ndcg: idcg > 0 ? dcg / idcg : null,\n    hit_rate: binaryEligible ? (exact.length > 0 ? 1 : 0) : null,\n    returned: results.length,\n    judged_fraction_returned: results.length ? judged / results.length : null,\n    unjudged: results.length - judged,\n  };\n}\nconst cutoffs = [...new Set([5, 10, Number(config.top_k)])];\nconst perQuery = rows.flatMap(row => cutoffs.map(k => metrics(row, k)));\nconst summary = [];\nfor (const method of methods) {\n  // As repetições são usadas para latência; qualidade usa a primeira medida.\n  const times = rows.filter(r => r.method === method).flatMap(r => r.latency_samples.map(Number));\n  for (const k of cutoffs) {\n    const subset = perQuery.filter(r => r.method === method && r.k === k);\n    const binarySubset = subset.filter(r => r.binary_eligible);\n    summary.push({\n      method, k, queries: subset.length,\n      binary_eligible_queries: binarySubset.length,\n      binary_excluded_queries: subset.length - binarySubset.length,\n      mrr_eligible_queries: binarySubset.length,\n      precision_eligible_queries: binarySubset.length,\n      recall_eligible_queries: binarySubset.length,\n      hit_rate_eligible_queries: binarySubset.length,\n      ndcg_eligible_queries: subset.filter(r => r.ndcg !== null).length,\n      mrr: mean(binarySubset.map(r => r.rr)),\n      precision: mean(binarySubset.map(r => r.precision)),\n      recall: mean(binarySubset.map(r => r.recall)),\n      ndcg: mean(subset.map(r => r.ndcg)),\n      hit_rate: mean(binarySubset.map(r => r.hit_rate)),\n      judged_fraction_returned: mean(subset.map(r => r.judged_fraction_returned)),\n      unjudged_mean: mean(subset.map(r => r.unjudged)),\n      latency_measurements: times.length,\n      latency_mean_ms: mean(times),\n      latency_p50_ms: percentile(times, .50),\n      latency_p95_ms: percentile(times, .95),\n    });\n  }\n}\nfunction csv(data) {\n  const columns = Object.keys(data[0]);\n  function cell(value) {\n    if (value === null || value === undefined) return '';\n    let text = typeof value === 'number' ? String(value).replace('.', ',') : String(value);\n    if (typeof value === 'string' && /^[=+\\-@\\t\\r]/.test(text)) text = \"'\" + text;\n    return /[;\"\\r\\n]/.test(text) ? '\"' + text.replace(/\"/g, '\"\"') + '\"' : text;\n  }\n  return '\\uFEFF' + columns.join(';') + '\\r\\n' + data.map(row => columns.map(key => cell(row[key])).join(';')).join('\\r\\n');\n}\nfunction file(data, fileName) { return {data: Buffer.from(csv(data)).toString('base64'), mimeType:'text/csv', fileName}; }\nreturn [{json: {\n  experiment_name: config.experiment_name, configuration: config,\n  summary, per_query: perQuery,\n  report_version: 'binary_exact_eligible_v3',\n  binary_metrics_scope: 'Consultas com exact_count > 0, mesmo conjunto elegível do MRR; null significa excluída, não zero.',\n  ndcg_scope: 'Consultas com IDCG > 0 (ao menos um Exact ou Partial).',\n  latency_query_scope: 'Todas as consultas medidas, excluindo aquecimento.', \n  latency_scope: 'Recuperação + materialização do top-K no PostgreSQL; exclui embedding, rede e escrita.',\n}, binary: {\n  resumo: file(summary, 'resumo.csv'),\n  por_consulta: file(perQuery, 'por_consulta.csv'),\n}}];\n"
+      },
+      "name": "Calcular metricas e CSV",
+      "id": "e3fb2568-6b17-4043-8353-8ea4da9e5dd8",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cada execução recebe um nome próprio. Guarde-o para consultar depois.\nreturn [{json:{\n  experiment_name: 'wands_' + Date.now() + '_' + $execution.id,\n  top_k: 10,\n  query_limit: 0, // 0 = todas as consultas; 10 = piloto de funcionamento.\n  repetitions: 5,\n  warmup_repetitions: 1,\n  seed: 42,\n  full_text_weight: 1,\n  semantic_weight: 1,\n  rrf_k: 50,\n  embedding_model: 'Gemini Embedding 2', // Apenas metadado.\n  environment: '2 Core, 8 GB Ram VPS, PostgreSQL + N8N', // Apenas metadado.\n  completed_status: 'completed', // Ajuste se test_searches.status tiver CHECK.\n}}];"
+      },
+      "name": "Configurar1",
+      "id": "c23d29a1-d106-42d8-b611-2d30ca67a53b",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Avaliação das Métricas\nConfigurar: modelo/ambiente. query_limit=10 de teste e 0 usa todas as consultas.\nO último nó contém as fórmulas e dois CSVs do resultado.",
+        "height": 148,
+        "width": 650
+      },
+      "name": "Leia primeiro",
+      "id": "4f87f85d-0de0-4b13-b0c0-4fcb64d29879",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -240
+      ]
+    }
+  ],
+  "connections": {
+    "manual": {
+      "main": [
+        [
+          {
+            "node": "Configurar1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar consultas": {
+      "main": [
+        [
+          {
+            "node": "Preparar buscas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar buscas": {
+      "main": [
+        [
+          {
+            "node": "Uma busca por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uma busca por vez": {
+      "main": [
+        [
+          {
+            "node": "Ler rankings e tempos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar cronometrar salvar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cronometrar salvar": {
+      "main": [
+        [
+          {
+            "node": "Uma busca por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler rankings e tempos": {
+      "main": [
+        [
+          {
+            "node": "Calcular metricas e CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configurar1": {
+      "main": [
+        [
+          {
+            "node": "Carregar consultas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "4a5ff7a22a8615997fd44b2b2fc111993d218fbeb00cc810e7a27663c080339f"
+  }
+}

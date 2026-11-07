@@ -1,0 +1,575 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "618738c5-ee6c-49af-9b07-39269af2b904",
+              "leftValue": "={{ $('whatsapp').item.json.query.key }}",
+              "rightValue": "20f1a87cb791e1ba3961516a63b94e7a",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -320,
+        0
+      ],
+      "id": "3ca5f328-7c3e-4108-8072-2c37f507a8e9",
+      "name": "hasKey"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "=System Prompt:\n\nYou are a product search assistant. Your goal is to find the best products for the user.\nWhen a user asks for a product, you must use the searchProduct tool with their query. This tool uses hybrid search to find the most relevant items. Return the results from the tool to the user clearly and concisely."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        208,
+        64
+      ],
+      "id": "203b8f9d-f2ae-4be5-a0e4-c64483c074db",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a0c04823-7ff1-49ba-b472-a3c1cf0ba25d",
+              "leftValue": "={{ $('whatsapp').item.json.body.data.message.conversation }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "846bb1ce-f220-4937-bd24-7960eb3207cd",
+              "leftValue": "={{ !$('fields').item.json.from?.includes(\"@g.us\") }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -192,
+        0
+      ],
+      "id": "f2df8fd1-bd85-4f00-8a6b-f0e136431b90",
+      "name": "textExists"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "94f30b4d-8d69-4621-accc-f9dce3091f4f",
+              "name": "key",
+              "value": "={{ $('whatsapp').item.json.query.key }}",
+              "type": "string"
+            },
+            {
+              "id": "0ec68aa9-c84f-4c54-a7c3-383e89a7c47a",
+              "name": "message",
+              "value": "={{ $('whatsapp').item.json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "320f1d83-36fd-48c2-924f-d82038bbccd3",
+              "name": "instance",
+              "value": "={{ $('whatsapp').item.json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "d5c85280-f056-419c-8d80-965bf2ff4d98",
+              "name": "from",
+              "value": "={{ $('whatsapp').item.json.body.data.key.remoteJid.includes(\"@\")? $('whatsapp').item.json.body.data.key.remoteJid : $('whatsapp').item.json.body.data.key.remoteJidAlt  }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -448,
+        0
+      ],
+      "id": "11dfac44-0838-4e2b-a1eb-b7456da20ad7",
+      "name": "fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "515c508b-5bbf-493d-b965-22c63ba464a5",
+              "leftValue": "={{ $('fields').item.json.message }}",
+              "rightValue": "!restart",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "db15d92d-5406-4914-b836-62029085906b",
+      "name": "!restart"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('fields').item.json.instance }}_{{ $('fields').item.json.from }}_memory"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -64
+      ],
+      "id": "b978b9e8-792c-4494-adb3-12135511ddc1",
+      "name": "deleteMemory",
+      "credentials": {
+        "redis": {
+          "id": "owNb2LRQv2zvzvYU",
+          "name": "vector-redis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution.lenite.com.br/message/sendText/{{ $('fields').item.json.instance }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('fields').item.json.from }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $('AI Agent').item.json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        64
+      ],
+      "id": "4f50b08b-617a-4f92-bdea-814c6057b928",
+      "name": "reply",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "g5anqMupVu6Pyqpe",
+          "name": "evolutionApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://evolution.lenite.com.br/message/sendText/{{ $('fields').item.json.instance }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('fields').item.json.from }}"
+            },
+            {
+              "name": "text",
+              "value": "=- restarted chat history"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        -64
+      ],
+      "id": "bfefb1cc-eaa9-4ab8-b208-47df0435b756",
+      "name": "restartedNotify",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "g5anqMupVu6Pyqpe",
+          "name": "evolutionApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.instance }}_{{ $json.from }}_memory",
+        "sessionTTL": "={{ 60 * 60 * 30 }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        288,
+        192
+      ],
+      "id": "ed13b5f2-d962-4a4b-b50c-b5c82ffabc06",
+      "name": "Redis",
+      "credentials": {
+        "redis": {
+          "id": "owNb2LRQv2zvzvYU",
+          "name": "vector-redis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "94f30b4d-8d69-4621-accc-f9dce3091f4f",
+              "name": "key",
+              "value": "={{ $('whatsapp').item.json.query.key }}",
+              "type": "string"
+            },
+            {
+              "id": "0ec68aa9-c84f-4c54-a7c3-383e89a7c47a",
+              "name": "message",
+              "value": "={{ $('whatsapp').item.json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "320f1d83-36fd-48c2-924f-d82038bbccd3",
+              "name": "instance",
+              "value": "={{ $('whatsapp').item.json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "d5c85280-f056-419c-8d80-965bf2ff4d98",
+              "name": "from",
+              "value": "={{ $('whatsapp').item.json.body.data.key.remoteJid.includes(\"@s.whatsapp.net\")? $('whatsapp').item.json.body.data.key.remoteJid : $('whatsapp').item.json.body.data.key.remoteJidAlt  }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        80,
+        64
+      ],
+      "id": "eaf6f658-3825-4172-99b6-98490410b0ad",
+      "name": "message"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evolutionapi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -576,
+        0
+      ],
+      "id": "76e7a11f-d023-47ba-968f-08405ce20b4d",
+      "name": "whatsapp",
+      "webhookId": "96ad5668-6462-454b-bf77-3c9c9e50c3d2"
+    },
+    {
+      "parameters": {
+        "content": "### Demo",
+        "height": 432,
+        "width": 1200,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "6faa1082-d520-4666-bce5-a451b01b800d",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        192,
+        192
+      ],
+      "id": "17291772-709b-4d26-a00b-20056eb7d81b",
+      "name": "Gemini2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dHU6Osqo1MhzUS0J",
+          "name": "Gemini Api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Use essa ferramenta [searchProduct] para buscar produtos no banco de dados, a query deve conter o que o cliente procura.",
+        "workflowId": {
+          "__rl": true,
+          "value": "X28jNy1o5CtYERVc",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/X28jNy1o5CtYERVc",
+          "cachedResultName": "snippets"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', `o produto ou item a ser procurado`, 'string') }}",
+            "return_amount": 5
+          },
+          "matchingColumns": [
+            "query"
+          ],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "return_amount",
+              "displayName": "return_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        192
+      ],
+      "id": "5232816e-732c-4b24-9772-7d845dd12706",
+      "name": "searchProduct1"
+    }
+  ],
+  "connections": {
+    "hasKey": {
+      "main": [
+        [
+          {
+            "node": "textExists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "textExists": {
+      "main": [
+        [
+          {
+            "node": "!restart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fields": {
+      "main": [
+        [
+          {
+            "node": "hasKey",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "!restart": {
+      "main": [
+        [
+          {
+            "node": "deleteMemory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "deleteMemory": {
+      "main": [
+        [
+          {
+            "node": "restartedNotify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "message": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "whatsapp": {
+      "main": [
+        [
+          {
+            "node": "fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "searchProduct1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a5ff7a22a8615997fd44b2b2fc111993d218fbeb00cc810e7a27663c080339f"
+  }
+}

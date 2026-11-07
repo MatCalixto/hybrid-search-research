@@ -1,0 +1,499 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Dataset Import",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "dataset",
+              "fieldType": "file"
+            },
+            {
+              "fieldLabel": "type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "products"
+                  },
+                  {
+                    "option": "queries"
+                  },
+                  {
+                    "option": "ground_truth"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "path": "dataset-import"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -576,
+        -368
+      ],
+      "id": "fc60019b-c548-4b7d-9049-93a43855ee30",
+      "name": "dataset",
+      "webhookId": "5ff9016f-86b1-40bf-9fe0-9a8fa476d0cb"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "dataset",
+        "options": {
+          "delimiter": "={{ '\\t' }}"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        -368
+      ],
+      "id": "58ffe5bf-4d10-4d50-b42c-4a7209eedb15",
+      "name": "csv"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "rag",
+          "mode": "list",
+          "cachedResultName": "rag"
+        },
+        "table": {
+          "__rl": true,
+          "value": "products",
+          "mode": "list",
+          "cachedResultName": "products"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.product_id }}",
+            "name": "={{ $json.product_name }}",
+            "description": "={{ $json.product_description }}",
+            "class": "={{ $json.product_class }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "class",
+              "displayName": "class",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "product_link",
+              "displayName": "product_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -192,
+        -496
+      ],
+      "id": "afd67bea-3fff-4184-baa6-01f686d4db5a",
+      "name": "insert-products",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('dataset').item.json.type }}",
+                    "rightValue": "products",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "450ad5df-289b-45d4-9744-23453b34236b"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4945539d-e795-4c23-86f0-113af7a4b586",
+                    "leftValue": "={{ $('dataset').item.json.type }}",
+                    "rightValue": "queries",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6e64dd5a-4627-4597-8396-e1ab656d24f0",
+                    "leftValue": "={{ $('dataset').item.json.type }}",
+                    "rightValue": "ground-truth",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -320,
+        -384
+      ],
+      "id": "f38ee957-593a-470c-beff-69b57a7a4d26",
+      "name": "switch"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "rag",
+          "mode": "list",
+          "cachedResultName": "rag"
+        },
+        "table": {
+          "__rl": true,
+          "value": "test_queries",
+          "mode": "list",
+          "cachedResultName": "test_queries"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query_id": "={{ $('csv').item.json.query_id }}",
+            "query": "={{ $('csv').item.json.query }}",
+            "query_class": "={{ $('csv').item.json.query_class }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "query_id",
+              "displayName": "query_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "query_class",
+              "displayName": "query_class",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -192,
+        -368
+      ],
+      "id": "443355b8-d122-421e-a3a2-648b8671ba1e",
+      "name": "insert-queries",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "rag",
+          "mode": "list",
+          "cachedResultName": "rag"
+        },
+        "table": {
+          "__rl": true,
+          "value": "test_labels",
+          "mode": "list",
+          "cachedResultName": "test_labels"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "query_id": "={{ $json.query_id }}",
+            "product_id": "={{ $json.product_id }}",
+            "label": "={{ $json.label }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "query_id",
+              "displayName": "query_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_id",
+              "displayName": "product_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "label",
+              "displayName": "label",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -192,
+        -224
+      ],
+      "id": "d3637002-4f5e-418e-8b50-af637edda81c",
+      "name": "insert-groud-truth",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "dataset": {
+      "main": [
+        [
+          {
+            "node": "csv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "csv": {
+      "main": [
+        [
+          {
+            "node": "switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch": {
+      "main": [
+        [
+          {
+            "node": "insert-products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "insert-queries",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "insert-groud-truth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "dataset": [
+      {
+        "dataset": [
+          {
+            "filename": "label.csv",
+            "mimetype": "text/csv",
+            "size": 5736234
+          }
+        ],
+        "type": "ground_truth",
+        "submittedAt": "2026-10-22T17:17:10.161-03:00",
+        "formMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a5ff7a22a8615997fd44b2b2fc111993d218fbeb00cc810e7a27663c080339f"
+  }
+}

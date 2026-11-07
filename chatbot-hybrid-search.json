@@ -1,0 +1,227 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "query"
+            },
+            {
+              "name": "return_amount",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "c055762a-8fe7-4141-a639-df2372f30060",
+      "typeVersion": 1.1,
+      "name": "searchProduct",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        192,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "43c89cce-fa52-4536-bfa0-5fdb5754cef2",
+              "name": "query",
+              "value": "={{ $('searchProduct').item.json.query }}",
+              "type": "string"
+            },
+            {
+              "id": "ea6f143d-ca6b-4ba3-89ca-479816f9ddfa",
+              "name": "return_amount",
+              "value": "={{ $('searchProduct').item.json.return_amount }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        -16
+      ],
+      "id": "fedb2fa1-3587-40a3-9a8f-977a539476cb",
+      "name": "setQuery"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7991febf-48ab-4088-ba47-77e7445e1169",
+              "name": "product_rank",
+              "value": "={{ $json.products }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        -16
+      ],
+      "id": "2ca909b7-1c95-4edc-8f4f-b75204e43201",
+      "name": "Success"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"models/gemini-embedding-2\",\n  \"content\": {\n    \"parts\": [\n      {\n        \"text\": \"{{ $json.query }}\"\n      }\n    ]\n  },\n  \"taskType\": \"RETRIEVAL_QUERY\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        448,
+        -16
+      ],
+      "id": "0da35198-b10b-410c-88ee-0f347852bb4d",
+      "name": "embedding",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "dHU6Osqo1MhzUS0J",
+          "name": "Gemini Api"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "products",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -16
+      ],
+      "id": "ecab9527-b66b-4538-985c-fd78c2049c5d",
+      "name": "aggregate"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM rag.hybrid_search(\n  $1,            -- query_text\n  $2::vector,    -- query_embedding (cast is essential)\n  $3::integer    -- match_count (cast to ensure integer type)\n);",
+        "options": {
+          "queryReplacement": "={{$('setQuery').item.json.query }}, {{ $('embedding').item.json.embedding.values.toJsonString() }}, {{ $('setQuery').item.json.return_amount }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        -16
+      ],
+      "id": "6a104ced-b665-4fe7-9a5b-443da4fd0fc4",
+      "name": "hybrid_search",
+      "credentials": {
+        "postgres": {
+          "id": "QBRasjseSLsaRpZY",
+          "name": "postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "### Busca Híbrida",
+        "height": 176,
+        "width": 832
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        128,
+        -64
+      ],
+      "typeVersion": 1,
+      "id": "3f72b95b-201d-4119-bab4-a31b1331b7b1",
+      "name": "Sticky Note"
+    }
+  ],
+  "connections": {
+    "searchProduct": {
+      "main": [
+        [
+          {
+            "node": "setQuery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "setQuery": {
+      "main": [
+        [
+          {
+            "node": "embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "embedding": {
+      "main": [
+        [
+          {
+            "node": "hybrid_search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hybrid_search": {
+      "main": [
+        [
+          {
+            "node": "aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "searchProduct": [
+      {
+        "query": "garden bench of wood",
+        "return_amount": 5
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4a5ff7a22a8615997fd44b2b2fc111993d218fbeb00cc810e7a27663c080339f"
+  }
+}
