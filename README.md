@@ -1,6 +1,6 @@
 # Recuperação de produtos com busca lexical, semântica e híbrida
 
-Repositório de apoio ao Trabalho de Conclusão de Curso de **Matheus Calixto**, dedicado à comparação de estratégias de recuperação de produtos para sistemas RAG (*Retrieval-Augmented Generation*).
+Repositório de apoio ao estudo dedicado à comparação de estratégias de recuperação de produtos para sistemas RAG (*Retrieval-Augmented Generation*).
 
 O projeto utiliza **n8n**, **PostgreSQL**, **pgvector** e o conjunto de dados **WANDS**, da Wayfair. Os workflows realizam a importação dos dados, a geração de embeddings, a execução das buscas e o cálculo das métricas. Também são disponibilizadas demonstrações de atendimento com busca híbrida.
 
@@ -65,7 +65,7 @@ O usuário precisa ter permissão para criar os objetos e habilitar a extensão.
 
 Importe os JSONs no n8n e selecione suas próprias credenciais nos nós PostgreSQL, HTTP e de modelos de linguagem. As referências a credenciais de outra instalação não fornecem acesso aos serviços.
 
-Nos workflows de embeddings, configure a autenticação da API. O nó `set-keys` contém o marcador `GEMINI-CREDENTIAL`; não publique chaves reais ao exportar sua configuração. Prefira armazenar a autenticação em credenciais do n8n.
+Nos workflows de embeddings, configure a autenticação da API, o nó `set-keys` contém o marcador `GEMINI-CREDENTIAL`.
 
 ### 3. Importar o WANDS
 
@@ -83,7 +83,7 @@ O importador está configurado para campos separados por tabulação. Importe os
 
 Execute `embed-products.json` e depois `embed-queries.json`.
 
-**Cada seleção carrega até 100 registros.** Com a configuração fornecida de uma entrada em `set-keys`, cada execução processa até um lote. Repita as execuções até não haver pendências; o laço atual percorre as entradas de chaves, não todo o catálogo automaticamente.
+**Cada seleção carrega até 100 registros.** Com a configuração fornecida de uma entrada em `set-keys`, cada execução processa até um lote. Repita as execuções até não haver pendências.
 
 Verifique as pendências no banco:
 
@@ -162,10 +162,6 @@ Os tempos dependem do ambiente, da carga e da configuração do banco. Os workfl
 Importe `chatbot-hybrid-search.json` antes de configurar `simple-demo.json` ou `evolutionapi-demo.json`. Nos nós de ferramenta de busca das demonstrações, selecione o subworkflow importado na sua instalação: IDs de workflows não são portáveis entre instâncias.
 
 Configure o Redis, o modelo de linguagem e a autenticação dos serviços. Para a Evolution API, ajuste também URL, instância, webhook e segredo de validação. As demonstrações são opcionais e não precisam ser executadas para reproduzir as métricas de recuperação.
-
-## Publicação e credenciais
-
-Antes de publicar exportações, remova chaves, tokens, senhas e dados de teste privados. O `.gitignore` exclui arquivos locais de configuração, backups e dados brutos, mas não remove segredos escritos dentro de um JSON nem arquivos já rastreados pelo Git. Os workflows, o SQL de estrutura e os CSVs de resultados devem permanecer versionados.
 
 ## Licença e referência
 
